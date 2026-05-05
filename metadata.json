@@ -1,0 +1,6 @@
+{
+  "name": "Sociograph",
+  "description": "A high-performance Actor Mapping and Social Network Analysis (SNA) tool with interactive graph visualization, centrality metrics, and matrix controls.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
