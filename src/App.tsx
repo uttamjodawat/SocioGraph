@@ -96,9 +96,13 @@ export default function App() {
   };
 
   const handleToggleRelation = (source: string, target: string) => {
+    // Look for ANY existing dependency between these two of the default type
+    const defaultTypeId = state.dependencyTypes[0].id;
     const existing = state.dependencies.find(d => 
-        (d.source === source && d.target === target) || (d.bidirectional && d.source === target && d.target === source)
+        d.typeId === defaultTypeId && 
+        ((d.source === source && d.target === target) || (d.source === target && d.target === source))
     );
+    
     if (existing) {
         setEditingDependency(existing);
     } else {
@@ -106,7 +110,7 @@ export default function App() {
             id: `d-${Date.now()}`,
             source,
             target,
-            typeId: state.dependencyTypes[0].id,
+            typeId: defaultTypeId,
             strength: 3,
             bidirectional: false
         };
@@ -116,10 +120,33 @@ export default function App() {
   };
 
   const handleUpdateDependency = (updated: Dependency) => {
-    setState(prev => ({
-        ...prev,
-        dependencies: prev.dependencies.map(d => d.id === updated.id ? updated : d)
-    }));
+    setState(prev => {
+        // If the updated dependency is bidirectional, remove any "other" dependency 
+        // of the same type between these two actors to avoid double counting.
+        let nextDeps = prev.dependencies;
+        
+        if (updated.bidirectional) {
+            nextDeps = nextDeps.filter(d => 
+                d.id === updated.id || // Keep the one we are updating
+                d.typeId !== updated.typeId || // Keep different types
+                !((d.source === updated.source && d.target === updated.target) || 
+                  (d.source === updated.target && d.target === updated.source))
+            );
+        } else {
+            // Even if one-way, ensure we don't have an EXACT duplicate of the same type and direction
+            nextDeps = nextDeps.filter(d => 
+                d.id === updated.id || 
+                d.typeId !== updated.typeId || 
+                d.source !== updated.source || 
+                d.target !== updated.target
+            );
+        }
+
+        return {
+            ...prev,
+            dependencies: nextDeps.map(d => d.id === updated.id ? updated : d)
+        };
+    });
     setEditingDependency(null);
   };
 
