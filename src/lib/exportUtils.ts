@@ -5,6 +5,19 @@
 
 import { Actor, Dependency, Category, DependencyType } from '../types';
 
+function escapeXML(str: string): string {
+    return str.replace(/[<>&"']/g, (c) => {
+        switch (c) {
+            case '<': return '&lt;';
+            case '>': return '&gt;';
+            case '&': return '&amp;';
+            case '"': return '&quot;';
+            case "'": return '&apos;';
+            default: return c;
+        }
+    });
+}
+
 export function generateNetworkSVG(
     actors: Actor[],
     dependencies: Dependency[],
@@ -58,9 +71,10 @@ export function generateNetworkSVG(
         const color = cat?.color || '#94a3b8';
         const metricValue = getMetricValue(metrics, actor.id, sizingMode);
         const radius = 15 + metricValue * 30;
+        const escapedName = escapeXML(actor.name);
 
         svg += `<circle cx="${pos.x}" cy="${pos.y}" r="${radius}" fill="${color}" stroke="#1e293b" stroke-width="2" />`;
-        svg += `<text x="${pos.x}" y="${pos.y + radius + 15}" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="bold" fill="#1e293b">${actor.name}</text>`;
+        svg += `<text x="${pos.x}" y="${pos.y + radius + 15}" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="bold" fill="#1e293b">${escapedName}</text>`;
     });
 
     svg += '</svg>';
