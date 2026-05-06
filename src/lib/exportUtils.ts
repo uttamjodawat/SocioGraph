@@ -89,6 +89,7 @@ function getMetricValue(metrics: Record<string, any>, id: string, mode: string):
       case 'out': return m.degreeCentrality.out;
       case 'betweenness': return m.betweennessCentrality;
       case 'closeness': return m.closenessCentrality;
+      case 'impact': return m.impactScore;
       default: return 0;
     }
 }

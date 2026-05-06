@@ -5,7 +5,7 @@
 
 import { useState, ReactNode } from 'react';
 import { Actor, Category, DependencyType } from '../types';
-import { Plus, Trash2, Users, Settings, GitCommit, GitBranch, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, Edit2, Users, Settings, GitCommit, GitBranch, ChevronDown, ChevronRight, X, Check } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -15,10 +15,13 @@ interface SidebarProps {
   dependencyTypes: DependencyType[];
   onAddActor: (name: string, categoryId: string, description: string) => void;
   onDeleteActor: (id: string) => void;
+  onUpdateActor: (actor: Actor) => void;
   onAddCategory: (name: string, color: string, description: string) => void;
   onDeleteCategory: (id: string) => void;
+  onUpdateCategory: (category: Category) => void;
   onAddDependencyType: (name: string, color: string, style: 'solid' | 'dashed', description: string) => void;
   onDeleteDependencyType: (id: string) => void;
+  onUpdateDependencyType: (type: DependencyType) => void;
 }
 
 export default function Sidebar({
@@ -27,19 +30,25 @@ export default function Sidebar({
   dependencyTypes,
   onAddActor,
   onDeleteActor,
+  onUpdateActor,
   onAddCategory,
   onDeleteCategory,
+  onUpdateCategory,
   onAddDependencyType,
   onDeleteDependencyType,
+  onUpdateDependencyType,
 }: SidebarProps) {
+  const [editingActorId, setEditingActorId] = useState<string | null>(null);
   const [newActorName, setNewActorName] = useState('');
   const [newActorCat, setNewActorCat] = useState(categories[0]?.id || '');
   const [newActorDesc, setNewActorDesc] = useState('');
   
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [newCatName, setNewCatName] = useState('');
   const [newCatColor, setNewCatColor] = useState('#6366f1');
   const [newCatDesc, setNewCatDesc] = useState('');
 
+  const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
   const [newTypeName, setNewTypeName] = useState('');
   const [newTypeColor, setNewTypeColor] = useState('#10b981');
   const [newTypeStyle, setNewTypeStyle] = useState<'solid' | 'dashed'>('solid');
@@ -83,10 +92,13 @@ export default function Sidebar({
                   className="overflow-hidden space-y-4"
                 >
                   <div className="flex flex-col gap-2 p-3 bg-white border border-slate-200 rounded-lg shadow-sm">
+                    <div className="text-[10px] uppercase font-bold text-slate-400 mb-1">
+                      {editingActorId ? 'Edit Actor' : 'Add New Actor'}
+                    </div>
                     <input 
                       type="text" 
                       className="tech-input w-full bg-slate-50 border-slate-100 placeholder:text-slate-400 text-xs" 
-                      placeholder="Add neighbor name..."
+                      placeholder="Actor name..."
                       value={newActorName}
                       onChange={(e) => setNewActorName(e.target.value)}
                     />
@@ -104,17 +116,37 @@ export default function Sidebar({
                       >
                         {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                       </select>
+                      {editingActorId && (
+                        <button 
+                          onClick={() => {
+                            setEditingActorId(null);
+                            setNewActorName('');
+                            setNewActorDesc('');
+                          }}
+                          className="px-3 py-1 bg-slate-100 text-slate-500 hover:bg-slate-200 rounded transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      )}
                       <button 
                         onClick={() => {
                             if (newActorName) {
-                                onAddActor(newActorName, newActorCat || categories[0].id, newActorDesc);
+                                if (editingActorId) {
+                                  const actor = actors.find(a => a.id === editingActorId);
+                                  if (actor) {
+                                    onUpdateActor({ ...actor, name: newActorName, categoryId: newActorCat, description: newActorDesc });
+                                  }
+                                  setEditingActorId(null);
+                                } else {
+                                  onAddActor(newActorName, newActorCat || categories[0].id, newActorDesc);
+                                }
                                 setNewActorName('');
                                 setNewActorDesc('');
                             }
                         }}
-                        className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded transition-colors shadow-sm"
+                        className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded transition-colors shadow-sm font-bold text-[10px]"
                       >
-                        <Plus size={14} />
+                        {editingActorId ? 'Save' : 'Add'}
                       </button>
                     </div>
                   </div>
@@ -134,12 +166,27 @@ export default function Sidebar({
                               )}
                             </div>
                           </div>
-                          <button 
-                            onClick={() => onDeleteActor(actor.id)}
-                            className="p-1 text-slate-200 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-                          >
-                            <Trash2 size={12} />
-                          </button>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                            <button 
+                              onClick={() => {
+                                setEditingActorId(actor.id);
+                                setNewActorName(actor.name);
+                                setNewActorDesc(actor.description || '');
+                                setNewActorCat(actor.categoryId);
+                                setExpanded(prev => ({ ...prev, actors: true }));
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }}
+                              className="p-1 text-slate-300 hover:text-indigo-500"
+                            >
+                              <Edit2 size={12} />
+                            </button>
+                            <button 
+                              onClick={() => onDeleteActor(actor.id)}
+                              className="p-1 text-slate-300 hover:text-red-500"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
@@ -182,16 +229,32 @@ export default function Sidebar({
                             <div className="text-[9px] text-slate-500 italic ml-5.5 whitespace-pre-wrap">{cat.description}</div>
                           )}
                         </div>
-                        <button 
-                          onClick={() => onDeleteCategory(cat.id)}
-                          className="p-1 text-slate-200 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                          <button 
+                            onClick={() => {
+                              setEditingCategoryId(cat.id);
+                              setNewCatName(cat.name);
+                              setNewCatColor(cat.color);
+                              setNewCatDesc(cat.description || '');
+                            }}
+                            className="p-1 text-slate-300 hover:text-indigo-500"
+                          >
+                            <Edit2 size={12} />
+                          </button>
+                          <button 
+                            onClick={() => onDeleteCategory(cat.id)}
+                            className="p-1 text-slate-300 hover:text-red-500"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
                   <div className="flex flex-col gap-2 p-1.5 bg-white border border-slate-200 rounded-lg shadow-sm">
+                    <div className="text-[10px] uppercase font-bold text-slate-400 px-1 pt-1 opacity-60">
+                      {editingCategoryId ? 'Edit Category' : 'Add Category'}
+                    </div>
                     <div className="flex gap-2">
                       <input 
                         type="text" 
@@ -213,18 +276,42 @@ export default function Sidebar({
                       value={newCatDesc}
                       onChange={(e) => setNewCatDesc(e.target.value)}
                     />
-                    <button 
-                      onClick={() => {
-                          if (newCatName) {
-                            onAddCategory(newCatName, newCatColor, newCatDesc);
+                    <div className="flex gap-2">
+                      {editingCategoryId && (
+                        <button 
+                          onClick={() => {
+                            setEditingCategoryId(null);
                             setNewCatName('');
                             setNewCatDesc('');
-                          }
-                      }}
-                      className="p-1 px-3 bg-indigo-600 text-white hover:bg-indigo-500 rounded text-[10px] font-bold"
-                    >
-                      Add Category
-                    </button>
+                            setNewCatColor('#6366f1');
+                          }}
+                          className="flex-1 p-1 bg-slate-100 text-slate-500 hover:bg-slate-200 rounded text-[10px] font-bold"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => {
+                            if (newCatName) {
+                              if (editingCategoryId) {
+                                const cat = categories.find(c => c.id === editingCategoryId);
+                                if (cat) {
+                                  onUpdateCategory({ ...cat, name: newCatName, color: newCatColor, description: newCatDesc });
+                                }
+                                setEditingCategoryId(null);
+                              } else {
+                                onAddCategory(newCatName, newCatColor, newCatDesc);
+                              }
+                              setNewCatName('');
+                              setNewCatDesc('');
+                              setNewCatColor('#6366f1');
+                            }
+                        }}
+                        className="flex-3 p-1 bg-indigo-600 text-white hover:bg-indigo-500 rounded text-[10px] font-bold"
+                      >
+                        {editingCategoryId ? 'Save Changes' : 'Add Category'}
+                      </button>
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -268,16 +355,33 @@ export default function Sidebar({
                             <div className="text-[9px] text-slate-500 italic ml-8 whitespace-pre-wrap">{type.description}</div>
                           )}
                         </div>
-                        <button 
-                          onClick={() => onDeleteDependencyType(type.id)}
-                          className="p-1 text-slate-200 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                          <button 
+                            onClick={() => {
+                              setEditingTypeId(type.id);
+                              setNewTypeName(type.name);
+                              setNewTypeColor(type.color);
+                              setNewTypeStyle(type.style);
+                              setNewTypeDesc(type.description || '');
+                            }}
+                            className="p-1 text-slate-300 hover:text-indigo-500"
+                          >
+                            <Edit2 size={12} />
+                          </button>
+                          <button 
+                            onClick={() => onDeleteDependencyType(type.id)}
+                            className="p-1 text-slate-300 hover:text-red-500"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
                   <div className="p-3 bg-white border border-slate-200 rounded-lg shadow-sm space-y-3">
+                    <div className="text-[10px] uppercase font-bold text-slate-400 opacity-60">
+                      {editingTypeId ? 'Edit Relationship' : 'Add Relationship'}
+                    </div>
                     <input 
                       type="text" 
                       className="tech-input w-full bg-slate-50 border-slate-100 placeholder:text-slate-400 text-xs" 
@@ -306,17 +410,37 @@ export default function Sidebar({
                         <option value="solid">Solid</option>
                         <option value="dashed">Dashed</option>
                       </select>
+                      {editingTypeId && (
+                         <button 
+                           onClick={() => {
+                             setEditingTypeId(null);
+                             setNewTypeName('');
+                             setNewTypeDesc('');
+                           }}
+                           className="p-1 px-2 text-[10px] font-bold text-slate-500 hover:bg-slate-100 rounded"
+                         >
+                           Cancel
+                         </button>
+                      )}
                       <button 
                         onClick={() => {
                             if (newTypeName) {
-                              onAddDependencyType(newTypeName, newTypeColor, newTypeStyle, newTypeDesc);
+                              if (editingTypeId) {
+                                const type = dependencyTypes.find(t => t.id === editingTypeId);
+                                if (type) {
+                                  onUpdateDependencyType({ ...type, name: newTypeName, color: newTypeColor, style: newTypeStyle, description: newTypeDesc });
+                                }
+                                setEditingTypeId(null);
+                              } else {
+                                onAddDependencyType(newTypeName, newTypeColor, newTypeStyle, newTypeDesc);
+                              }
                               setNewTypeName('');
                               setNewTypeDesc('');
                             }
                         }}
-                        className="p-1.5 bg-indigo-600 text-white rounded shadow-sm"
+                        className="p-1.5 bg-indigo-600 text-white rounded shadow-sm hover:bg-indigo-500 transition-colors"
                       >
-                        <Plus size={14} />
+                        {editingTypeId ? <Check size={14} /> : <Plus size={14} />}
                       </button>
                     </div>
                   </div>

@@ -3,16 +3,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Actor, Category, SNAMetrics } from '../types';
+import { Actor, Category, SNAMetrics, Dependency } from '../types';
 import { cn } from '../lib/utils';
 
 interface SNAStatsProps {
   actors: Actor[];
+  dependencies: Dependency[];
   categories: Category[];
   metrics: Record<string, SNAMetrics>;
 }
 
-export default function SNAStats({ actors, categories, metrics }: SNAStatsProps) {
+export default function SNAStats({ actors, dependencies, categories, metrics }: SNAStatsProps) {
+  const totalEdges = Object.values(metrics).reduce((acc, current) => acc + current.degreeCentrality.rawIn, 0);
+
   const sortedByBetweenness = [...actors].sort((a, b) => 
     (metrics[b.id]?.betweennessCentrality || 0) - (metrics[a.id]?.betweennessCentrality || 0)
   );
@@ -23,7 +26,7 @@ export default function SNAStats({ actors, categories, metrics }: SNAStatsProps)
         <h3 className="tab-header tracking-[0.2em] mb-4">Network Overview</h3>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
           <StatBox label="Total Nodes" value={actors.length} />
-          <StatBox label="Network Density" value={(actors.length > 1 ? (Object.keys(metrics).length / (actors.length * (actors.length - 1))).toFixed(2) : '0')} />
+          <StatBox label="Network Density" value={(actors.length > 1 ? (totalEdges / (actors.length * (actors.length - 1))).toFixed(2) : '0')} />
           <StatBox label="Avg Degree" value={(Object.values(metrics).reduce((acc, current) => acc + current.degreeCentrality.total, 0) / actors.length).toFixed(2)} />
           <StatBox label="Flow Efficiency" value={(Object.values(metrics).reduce((acc, current) => acc + current.closenessCentrality, 0) / actors.length).toFixed(2)} />
         </div>
@@ -45,7 +48,7 @@ export default function SNAStats({ actors, categories, metrics }: SNAStatsProps)
               {sortedByBetweenness.map(actor => {
                 const m = metrics[actor.id];
                 const cat = categories.find(c => c.id === actor.categoryId);
-                const impact = (m.betweennessCentrality * 0.7 + m.closenessCentrality * 0.3);
+                const impact = m.impactScore;
                 return (
                   <tr key={actor.id} className="hover:bg-indigo-50/20 transition-colors">
                     <td className="px-6 py-4">

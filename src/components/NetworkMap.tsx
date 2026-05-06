@@ -17,7 +17,8 @@ interface NetworkMapProps {
   dependencies: Dependency[];
   dependencyTypes: DependencyType[];
   metrics: Record<string, SNAMetrics>;
-  sizingMode: 'none' | 'in' | 'out' | 'betweenness' | 'closeness';
+  sizingMode: 'none' | 'in' | 'out' | 'betweenness' | 'closeness' | 'impact';
+  selectedActorId: string | null;
   onActorClick: (id: string | null) => void;
 }
 
@@ -28,10 +29,13 @@ const NetworkMap = forwardRef<NetworkMapRef, NetworkMapProps>(({
   dependencyTypes,
   metrics,
   sizingMode,
+  selectedActorId,
   onActorClick
 }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const networkRef = useRef<Network | null>(null);
+  const nodesRef = useRef<DataSet<any> | null>(null);
+  const edgesRef = useRef<DataSet<any> | null>(null);
 
   useImperativeHandle(ref, () => ({
     getPositions: () => {
@@ -43,91 +47,155 @@ const NetworkMap = forwardRef<NetworkMapRef, NetworkMapProps>(({
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const nodes = new DataSet(
-      actors.map(actor => {
-        const cat = categories.find(c => c.id === actor.categoryId);
-        const metricValue = getMetricForActor(actor.id, metrics, sizingMode);
-        
-        return {
-          id: actor.id,
-          label: actor.name,
-          color: {
-            background: cat?.color || '#94a3b8',
-            border: '#1e293b',
-            highlight: {
-              background: cat?.color || '#94a3b8',
-              border: '#ffffff'
-            }
-          },
-          font: { color: '#1e293b', size: 14, face: 'Inter', strokeWidth: 4, strokeColor: '#ffffff' },
-          size: 25 + metricValue * 50, // Scale based on metric
-          shape: 'dot',
-          borderWidth: 2,
-        };
-      })
-    );
+    // Identify neighbors of selected actor
+    const neighborIds = new Set<string>();
+    if (selectedActorId) {
+      neighborIds.add(selectedActorId);
+      dependencies.forEach(dep => {
+        if (dep.source === selectedActorId) neighborIds.add(dep.target);
+        if (dep.target === selectedActorId) neighborIds.add(dep.source);
+      });
+    }
 
-    const edges = new DataSet(
-      dependencies.map(dep => {
-        const depType = dependencyTypes.find(t => t.id === dep.typeId);
-        return {
-          id: dep.id,
-          from: dep.source,
-          to: dep.target,
-          arrows: dep.bidirectional ? 'to, from' : 'to',
-          width: dep.strength,
-          color: {
-            color: depType?.color || '#64748b',
-            highlight: '#1e293b',
-            active: depType?.color || '#64748b',
-          },
-          dashes: depType?.style === 'dashed',
-          smooth: { enabled: true, type: 'curvedCW', roundness: 0.2 },
-        };
-      })
-    );
+    const nodesData = actors.map(actor => {
+      const cat = categories.find(c => c.id === actor.categoryId);
+      const metricValue = getMetricForActor(actor.id, metrics, sizingMode);
+      
+      const isSelected = selectedActorId === actor.id;
+      const isNeighbor = neighborIds.has(actor.id);
+      const hasSelection = selectedActorId !== null;
 
-    const options: any = {
-      physics: {
-        forceAtlas2Based: {
-          gravitationalConstant: -100,
-          centralGravity: 0.01,
-          springLength: 150,
-          springConstant: 0.08,
+      // Faded colors for non-related nodes
+      const baseColor = cat?.color || '#94a3b8';
+      const opacity = hasSelection && !isNeighbor ? 0.2 : 1;
+      
+      return {
+        id: actor.id,
+        label: actor.name,
+        color: {
+          background: baseColor,
+          border: isSelected ? '#1e293b' : '#334155',
+          highlight: {
+            background: baseColor,
+            border: '#000000'
+          },
+          hover: {
+            background: baseColor,
+            border: '#000000'
+          }
         },
-        maxVelocity: 50,
-        solver: 'forceAtlas2Based',
-        timestep: 0.35,
-        stabilization: { iterations: 150 },
-      },
-      interaction: {
-        hover: true,
-        tooltipDelay: 200,
-        hideEdgesOnDrag: true,
-      },
-      edges: {
-        selectionWidth: 2,
-      },
-    };
-
-    const network = new Network(containerRef.current, { nodes, edges }, options);
-    networkRef.current = network;
-
-    network.on('click', (params) => {
-      if (params.nodes.length > 0) {
-        onActorClick(params.nodes[0]);
-      } else {
-        onActorClick(null);
-      }
+        opacity: opacity,
+        font: { 
+          color: hasSelection && !isNeighbor ? '#94a3b8' : '#1e293b', 
+          size: 14, 
+          face: 'Inter', 
+          strokeWidth: 4, 
+          strokeColor: '#ffffff' 
+        },
+        size: 25 + metricValue * 50,
+        shape: 'dot',
+        borderWidth: isSelected ? 4 : 2,
+        shadow: isSelected ? { enabled: true, color: 'rgba(0,0,0,0.2)', size: 10, x: 0, y: 0 } : false
+      };
     });
 
+    const edgesData = dependencies.map(dep => {
+      const depType = dependencyTypes.find(t => t.id === dep.typeId);
+      const isRelated = selectedActorId === dep.source || selectedActorId === dep.target;
+      const hasSelection = selectedActorId !== null;
+      
+      return {
+        id: dep.id,
+        from: dep.source,
+        to: dep.target,
+        arrows: dep.bidirectional ? 'to, from' : 'to',
+        width: dep.strength, // Removed thickening
+        color: {
+          color: hasSelection && !isRelated ? '#e2e8f0' : (depType?.color || '#64748b'),
+          highlight: depType?.color || '#1e293b',
+          active: depType?.color || '#64748b',
+          opacity: hasSelection && !isRelated ? 0.1 : 0.8
+        },
+        dashes: depType?.style === 'dashed',
+        smooth: { enabled: true, type: 'curvedCW', roundness: 0.2 },
+        shadow: isRelated ? { enabled: true, color: 'rgba(0,0,0,0.1)', size: 5, x: 0, y: 0 } : false
+      };
+    });
+
+    if (!networkRef.current) {
+        nodesRef.current = new DataSet(nodesData);
+        edgesRef.current = new DataSet(edgesData);
+
+        const options: Options = {
+          physics: {
+            forceAtlas2Based: {
+              gravitationalConstant: -100,
+              centralGravity: 0.01,
+              springLength: 150,
+              springConstant: 0.08,
+            },
+            maxVelocity: 50,
+            solver: 'forceAtlas2Based',
+            timestep: 0.35,
+            stabilization: { 
+              iterations: 150,
+              updateInterval: 25
+            },
+          },
+          interaction: {
+            hover: true,
+            tooltipDelay: 200,
+            hideEdgesOnDrag: true,
+          },
+          edges: {
+            selectionWidth: 2,
+          },
+        };
+
+        const network = new Network(containerRef.current, { 
+            nodes: nodesRef.current, 
+            edges: edgesRef.current 
+        }, options);
+        
+        networkRef.current = network;
+
+        network.on('click', (params) => {
+          if (params.nodes.length > 0) {
+            onActorClick(params.nodes[0]);
+          } else {
+            onActorClick(null);
+          }
+        });
+    } else {
+        // Update data sets instead of recreating network
+        // Note: remove ids that are no longer present
+        const currentNodes = nodesRef.current!.getIds();
+        const nextNodes = nodesData.map(n => n.id);
+        const nodesToRemove = currentNodes.filter(id => !nextNodes.includes(id as string));
+        if (nodesToRemove.length > 0) nodesRef.current!.remove(nodesToRemove);
+        nodesRef.current!.update(nodesData);
+
+        const currentEdges = edgesRef.current!.getIds();
+        const nextEdges = edgesData.map(e => e.id);
+        const edgesToRemove = currentEdges.filter(id => !nextEdges.includes(id as string));
+        if (edgesToRemove.length > 0) edgesRef.current!.remove(edgesToRemove);
+        edgesRef.current!.update(edgesData);
+    }
+
+    return () => {
+      // We only destroy if the component unmounts
+    };
+  }, [actors, dependencies, sizingMode, categories, dependencyTypes, metrics, selectedActorId]);
+
+  // Handle cleanup on unmount
+  useEffect(() => {
     return () => {
       if (networkRef.current) {
         networkRef.current.destroy();
         networkRef.current = null;
       }
     };
-  }, [actors, dependencies, sizingMode, categories, dependencyTypes, metrics]);
+  }, []);
 
   return (
     <div className="w-full h-full relative" id="network-map-container">
@@ -177,6 +245,7 @@ function getMetricForActor(id: string, metrics: Record<string, SNAMetrics>, mode
     case 'out': return m.degreeCentrality.out;
     case 'betweenness': return m.betweennessCentrality;
     case 'closeness': return m.closenessCentrality;
+    case 'impact': return m.impactScore;
     default: return 0;
   }
 }

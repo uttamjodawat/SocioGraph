@@ -39,7 +39,7 @@ export default function App() {
   const mapRef = useRef<NetworkMapRef>(null);
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [viewMode, setViewMode] = useState<'map' | 'stats' | 'matrix'>('map');
-  const [sizingMode, setSizingMode] = useState<'none' | 'in' | 'out' | 'betweenness' | 'closeness'>('none');
+  const [sizingMode, setSizingMode] = useState<'none' | 'in' | 'out' | 'betweenness' | 'closeness' | 'impact'>('none');
   const [selectedActorId, setSelectedActorId] = useState<string | null>(null);
   const [editingDependency, setEditingDependency] = useState<Dependency | null>(null);
 
@@ -74,6 +74,13 @@ export default function App() {
     }));
     if (selectedActorId === id) setSelectedActorId(null);
   };
+  
+  const handleUpdateActor = (updated: Actor) => {
+    setState(prev => ({
+      ...prev,
+      actors: prev.actors.map(a => a.id === updated.id ? updated : a)
+    }));
+  };
 
   const handleAddCategory = (name: string, color: string, description?: string) => {
       const newCat: Category = { id: `cat-${Date.now()}`, name, color, icon: 'Shield', description };
@@ -85,6 +92,13 @@ export default function App() {
     setState(prev => ({ ...prev, categories: prev.categories.filter(c => c.id !== id) }));
   };
 
+  const handleUpdateCategory = (updated: Category) => {
+    setState(prev => ({
+      ...prev,
+      categories: prev.categories.map(c => c.id === updated.id ? updated : c)
+    }));
+  };
+
   const handleAddDependencyType = (name: string, color: string, style: 'solid' | 'dashed', description?: string) => {
     const newType: DependencyType = { id: `dt-${Date.now()}`, name, color, style, description };
     setState(prev => ({ ...prev, dependencyTypes: [...prev.dependencyTypes, newType] }));
@@ -93,6 +107,13 @@ export default function App() {
   const handleDeleteDependencyType = (id: string) => {
     if (state.dependencyTypes.length <= 1) return;
     setState(prev => ({ ...prev, dependencyTypes: prev.dependencyTypes.filter(t => t.id !== id) }));
+  };
+
+  const handleUpdateDependencyType = (updated: DependencyType) => {
+    setState(prev => ({
+      ...prev,
+      dependencyTypes: prev.dependencyTypes.map(t => t.id === updated.id ? updated : t)
+    }));
   };
 
   const handleToggleRelation = (source: string, target: string) => {
@@ -170,6 +191,7 @@ export default function App() {
   };
 
   const handleExport = () => {
+    const totalEdges = Object.values(metrics).reduce((acc, current) => acc + current.degreeCentrality.rawIn, 0);
     const exportData = {
         actors: state.actors,
         categories: state.categories,
@@ -179,9 +201,9 @@ export default function App() {
             timestamp: new Date().toISOString(),
             metrics: metrics,
             summary: {
-                density: (state.actors.length > 1 ? (state.dependencies.length / (state.actors.length * (state.actors.length - 1))).toFixed(4) : '0'),
+                density: (state.actors.length > 1 ? (totalEdges / (state.actors.length * (state.actors.length - 1))).toFixed(4) : '0'),
                 totalNodes: state.actors.length,
-                totalEdges: state.dependencies.length
+                totalEdges: totalEdges
             }
         }
     };
@@ -272,17 +294,20 @@ export default function App() {
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
               className="overflow-hidden border-r border-slate-200 bg-white shrink-0 h-full"
             >
-              <Sidebar 
-                actors={state.actors} 
-                categories={state.categories}
-                dependencyTypes={state.dependencyTypes}
-                onAddActor={handleAddActor}
-                onDeleteActor={handleDeleteActor}
-                onAddCategory={handleAddCategory}
-                onDeleteCategory={handleDeleteCategory}
-                onAddDependencyType={handleAddDependencyType}
-                onDeleteDependencyType={handleDeleteDependencyType}
-              />
+                <Sidebar 
+                  actors={state.actors} 
+                  categories={state.categories}
+                  dependencyTypes={state.dependencyTypes}
+                  onAddActor={handleAddActor}
+                  onDeleteActor={handleDeleteActor}
+                  onUpdateActor={handleUpdateActor}
+                  onAddCategory={handleAddCategory}
+                  onDeleteCategory={handleDeleteCategory}
+                  onUpdateCategory={handleUpdateCategory}
+                  onAddDependencyType={handleAddDependencyType}
+                  onDeleteDependencyType={handleDeleteDependencyType}
+                  onUpdateDependencyType={handleUpdateDependencyType}
+                />
             </motion.div>
           )}
         </AnimatePresence>
@@ -335,6 +360,7 @@ export default function App() {
                 <option value="out">Out-Degree Centrality</option>
                 <option value="betweenness">Betweenness Centrality</option>
                 <option value="closeness">Closeness Centrality</option>
+                <option value="impact">Impact Score</option>
               </select>
             </div>
           </div>
@@ -369,6 +395,7 @@ export default function App() {
                     dependencyTypes={state.dependencyTypes}
                     metrics={metrics}
                     sizingMode={sizingMode}
+                    selectedActorId={selectedActorId}
                     onActorClick={setSelectedActorId}
                   />
                 </motion.div>
@@ -378,7 +405,7 @@ export default function App() {
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     className="absolute inset-0 bg-white"
                 >
-                  <SNAStats actors={state.actors} categories={state.categories} metrics={metrics} />
+                  <SNAStats actors={state.actors} dependencies={state.dependencies} categories={state.categories} metrics={metrics} />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -420,6 +447,12 @@ export default function App() {
                                     value={metrics[selectedActor.id].closenessCentrality} 
                                     color="text-emerald-600" 
                                     help="Measures efficiency. High values mean the actor is 'close' to everyone else on average." 
+                                />
+                                <MetricItem 
+                                    label="Impact Score" 
+                                    value={metrics[selectedActor.id].impactScore} 
+                                    color="text-amber-600" 
+                                    help="Weighted composite score: 70% Betweenness, 30% Closeness. Indicates overall node importance." 
                                 />
                             </div>
                             

@@ -48,6 +48,7 @@ export interface SNAMetrics {
   };
   betweennessCentrality: number;
   closenessCentrality: number;
+  impactScore: number;
 }
 
 export type NetworkState = {

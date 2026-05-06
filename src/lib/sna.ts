@@ -17,7 +17,8 @@ export function calculateSNAMetrics(actors: Actor[], dependencies: Dependency[])
     metrics[actor.id] = {
       degreeCentrality: { in: 0, out: 0, total: 0, rawIn: 0, rawOut: 0, rawTotal: 0 },
       betweennessCentrality: 0,
-      closenessCentrality: 0
+      closenessCentrality: 0,
+      impactScore: 0
     };
   });
 
@@ -144,10 +145,13 @@ export function calculateSNAMetrics(actors: Actor[], dependencies: Dependency[])
     }
   });
 
-  // Normalize Betweenness (for directed graphs, it's (n-1)(n-2))
+  // Normalize Betweenness and calculate final Impact Score
   const normalization = (n - 1) * (n - 2);
   actors.forEach(actor => {
-    metrics[actor.id].betweennessCentrality = normalization > 0 ? betweenness[actor.id] / normalization : 0;
+    const m = metrics[actor.id];
+    m.betweennessCentrality = normalization > 0 ? betweenness[actor.id] / normalization : 0;
+    // Composite Impact Score (Weighted Betweenness 70% and Closeness 30%)
+    m.impactScore = (m.betweennessCentrality * 0.7 + m.closenessCentrality * 0.3);
   });
 
   return metrics;
