@@ -15,7 +15,7 @@ export function calculateSNAMetrics(actors: Actor[], dependencies: Dependency[])
   // Initialize metrics
   actors.forEach(actor => {
     metrics[actor.id] = {
-      degreeCentrality: { in: 0, out: 0, total: 0 },
+      degreeCentrality: { in: 0, out: 0, total: 0, rawIn: 0, rawOut: 0, rawTotal: 0 },
       betweennessCentrality: 0,
       closenessCentrality: 0
     };
@@ -26,31 +26,31 @@ export function calculateSNAMetrics(actors: Actor[], dependencies: Dependency[])
   // 1. Degree Centrality
   dependencies.forEach(dep => {
     if (metrics[dep.source]) {
-      metrics[dep.source].degreeCentrality.out++;
-      metrics[dep.source].degreeCentrality.total++;
+      metrics[dep.source].degreeCentrality.rawOut++;
+      metrics[dep.source].degreeCentrality.rawTotal++;
     }
     if (metrics[dep.target]) {
-      metrics[dep.target].degreeCentrality.in++;
-      metrics[dep.target].degreeCentrality.total++;
+      metrics[dep.target].degreeCentrality.rawIn++;
+      metrics[dep.target].degreeCentrality.rawTotal++;
     }
     if (dep.bidirectional) {
       if (metrics[dep.source]) {
-        metrics[dep.source].degreeCentrality.in++;
-        metrics[dep.source].degreeCentrality.total++;
+        metrics[dep.source].degreeCentrality.rawIn++;
+        metrics[dep.source].degreeCentrality.rawTotal++;
       }
       if (metrics[dep.target]) {
-        metrics[dep.target].degreeCentrality.out++;
-        metrics[dep.target].degreeCentrality.total++;
+        metrics[dep.target].degreeCentrality.rawOut++;
+        metrics[dep.target].degreeCentrality.rawTotal++;
       }
     }
   });
 
-  // Normalize Degree Centrality
+  // Normalize Degree Centrality and copy raw values
   actors.forEach(actor => {
     const m = metrics[actor.id];
-    m.degreeCentrality.in /= (n - 1);
-    m.degreeCentrality.out /= (n - 1);
-    m.degreeCentrality.total /= (n - 1);
+    m.degreeCentrality.in = m.degreeCentrality.rawIn / (n - 1);
+    m.degreeCentrality.out = m.degreeCentrality.rawOut / (n - 1);
+    m.degreeCentrality.total = m.degreeCentrality.rawTotal / (n - 1);
   });
 
   // 2. Shortest Paths & Betweenness (Brandes' Algorithm)

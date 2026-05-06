@@ -42,6 +42,9 @@ export interface SNAMetrics {
     in: number;
     out: number;
     total: number;
+    rawIn: number;
+    rawOut: number;
+    rawTotal: number;
   };
   betweennessCentrality: number;
   closenessCentrality: number;

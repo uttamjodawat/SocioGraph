@@ -36,7 +36,7 @@ export default function SNAStats({ actors, categories, metrics }: SNAStatsProps)
             <thead className="bg-slate-50 text-slate-400 font-bold border-b border-slate-200">
               <tr>
                 <th className="px-6 py-4 text-left uppercase tracking-tighter">Actor Entity</th>
-                <th className="px-6 py-4 text-center uppercase tracking-tighter">In / Out Ratio</th>
+                <th className="px-6 py-4 text-center uppercase tracking-tighter">In / Out (Raw)</th>
                 <th className="px-6 py-4 text-center uppercase tracking-tighter">Betweenness (Rank)</th>
                 <th className="px-6 py-4 text-center uppercase tracking-tighter">Impact Score</th>
               </tr>
@@ -58,7 +58,7 @@ export default function SNAStats({ actors, categories, metrics }: SNAStatsProps)
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center font-mono text-slate-500">
-                        {m.degreeCentrality.in.toFixed(2)} / {m.degreeCentrality.out.toFixed(2)}
+                        {m.degreeCentrality.rawIn} / {m.degreeCentrality.rawOut}
                     </td>
                     <td className="px-6 py-4 text-center font-mono">
                          <span className={cn(

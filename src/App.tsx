@@ -380,25 +380,49 @@ export default function App() {
                             </button>
                         </div>
 
-                        <div className="space-y-3">
-                            <div className="p-3 bg-slate-50 rounded-lg space-y-3 border border-slate-100">
-                                <MetricItem label="Betweenness Centrality" value={metrics[selectedActor.id].betweennessCentrality} color="text-indigo-600" 
-                                    help="Critical bottleneck. Most information flow passes through this actor." />
+                        <div className="space-y-4">
+                            <div className="p-3 bg-slate-50 rounded-lg space-y-4 border border-slate-100">
+                                <MetricItem 
+                                    label="Betweenness Centrality" 
+                                    value={metrics[selectedActor.id].betweennessCentrality} 
+                                    color="text-indigo-600" 
+                                    help="Identifies bridges and bottlenecks. High values mean many shortest paths pass through this actor." 
+                                />
+                                <MetricItem 
+                                    label="Closeness Centrality" 
+                                    value={metrics[selectedActor.id].closenessCentrality} 
+                                    color="text-emerald-600" 
+                                    help="Measures efficiency. High values mean the actor is 'close' to everyone else on average." 
+                                />
                             </div>
                             
                             <div className="grid grid-cols-2 gap-2">
-                                <div className="p-2 border border-slate-100 rounded text-center bg-white shadow-xs">
-                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">In-Degree</div>
-                                    <div className="text-lg font-mono font-bold text-slate-800">{(metrics[selectedActor.id].degreeCentrality.in * 100).toFixed(0)}</div>
+                                <div className="p-3 border border-slate-100 rounded bg-white shadow-sm">
+                                    <div className="flex justify-between items-start mb-1">
+                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">In-Degree</div>
+                                        <Info size={10} className="text-slate-300" />
+                                    </div>
+                                    <div className="flex items-baseline gap-1">
+                                        <div className="text-xl font-mono font-bold text-slate-800">{metrics[selectedActor.id].degreeCentrality.rawIn}</div>
+                                        <div className="text-[10px] text-slate-400">/ {state.actors.length - 1}</div>
+                                    </div>
+                                    <div className="text-[9px] text-slate-400 mt-1 leading-none">Incoming relationships. Score: {(metrics[selectedActor.id].degreeCentrality.in * 100).toFixed(0)}%</div>
                                 </div>
-                                <div className="p-2 border border-slate-100 rounded text-center bg-white shadow-xs">
-                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Closeness</div>
-                                    <div className="text-lg font-mono font-bold text-slate-800">{metrics[selectedActor.id].closenessCentrality.toFixed(2)}</div>
+                                <div className="p-3 border border-slate-100 rounded bg-white shadow-sm">
+                                    <div className="flex justify-between items-start mb-1">
+                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Out-Degree</div>
+                                        <Info size={10} className="text-slate-300" />
+                                    </div>
+                                    <div className="flex items-baseline gap-1">
+                                        <div className="text-xl font-mono font-bold text-slate-800">{metrics[selectedActor.id].degreeCentrality.rawOut}</div>
+                                        <div className="text-[10px] text-slate-400">/ {state.actors.length - 1}</div>
+                                    </div>
+                                    <div className="text-[9px] text-slate-400 mt-1 leading-none">Outgoing relationships. Score: {(metrics[selectedActor.id].degreeCentrality.out * 100).toFixed(0)}%</div>
                                 </div>
                             </div>
 
-                            <div className="pt-2">
-                                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Direct Dependencies</h3>
+                            <div>
+                                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-100 pb-1">Direct Network</h3>
                                 <div className="flex flex-wrap gap-1">
                                     {state.dependencies.filter(d => d.source === selectedActor.id || d.target === selectedActor.id).slice(0, 5).map(d => {
                                         const other = d.source === selectedActor.id ? state.actors.find(a => a.id === d.target) : state.actors.find(a => a.id === d.source);
