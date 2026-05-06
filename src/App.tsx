@@ -541,7 +541,7 @@ export default function App() {
                             <div>
                                 <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-100 pb-1">Direct Network</h3>
                                 <div className="flex flex-wrap gap-1">
-                                    {state.dependencies.filter(d => d.source === selectedActor.id || d.target === selectedActor.id).slice(0, 5).map(d => {
+                                    {state.dependencies.filter(d => d.source === selectedActor.id || d.target === selectedActor.id).map(d => {
                                         const other = d.source === selectedActor.id ? state.actors.find(a => a.id === d.target) : state.actors.find(a => a.id === d.source);
                                         return (
                                             <span key={d.id} className="px-2 py-1 bg-slate-100 rounded text-[9px] font-bold text-slate-600 flex items-center gap-1 border border-slate-200">
