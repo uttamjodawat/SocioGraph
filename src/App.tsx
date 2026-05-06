@@ -7,7 +7,12 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import Matrix from './components/Matrix';
-import { generateNetworkSVG } from './lib/exportUtils';
+import { 
+  generateNetworkSVG, 
+  generateNodesCSV, 
+  generateConnectionsCSV, 
+  generateSummaryCSV 
+} from './lib/exportUtils';
 import NetworkMap, { NetworkMapRef } from './components/NetworkMap';
 import SNAStats from './components/SNAStats';
 import { NetworkState, Actor, Dependency, SNAMetrics, Category, DependencyType } from './types';
@@ -49,9 +54,13 @@ export default function App() {
   }, [state]);
 
   // SNA Calculation
-  const metrics = useMemo(() => {
+  const metrics: Record<string, SNAMetrics> = useMemo(() => {
     return calculateSNAMetrics(state.actors, state.dependencies);
   }, [state.actors, state.dependencies]);
+
+  const totalEdges = useMemo(() => {
+    return Object.values(metrics).reduce((acc: number, m: SNAMetrics) => acc + m.degreeCentrality.rawIn, 0);
+  }, [metrics]);
 
   // Actions
   const handleAddActor = (name: string, categoryId: string, description?: string) => {
@@ -89,7 +98,15 @@ export default function App() {
 
   const handleDeleteCategory = (id: string) => {
     if (state.categories.length <= 1) return;
-    setState(prev => ({ ...prev, categories: prev.categories.filter(c => c.id !== id) }));
+    setState(prev => {
+      const remainingCats = prev.categories.filter(c => c.id !== id);
+      const fallbackCatId = remainingCats[0].id;
+      return {
+        ...prev,
+        categories: remainingCats,
+        actors: prev.actors.map(a => a.categoryId === id ? { ...a, categoryId: fallbackCatId } : a)
+      };
+    });
   };
 
   const handleUpdateCategory = (updated: Category) => {
@@ -106,7 +123,11 @@ export default function App() {
 
   const handleDeleteDependencyType = (id: string) => {
     if (state.dependencyTypes.length <= 1) return;
-    setState(prev => ({ ...prev, dependencyTypes: prev.dependencyTypes.filter(t => t.id !== id) }));
+    setState(prev => ({
+      ...prev,
+      dependencyTypes: prev.dependencyTypes.filter(t => t.id !== id),
+      dependencies: prev.dependencies.filter(d => d.typeId !== id)
+    }));
   };
 
   const handleUpdateDependencyType = (updated: DependencyType) => {
@@ -117,11 +138,15 @@ export default function App() {
   };
 
   const handleToggleRelation = (source: string, target: string) => {
-    // Look for ANY existing dependency between these two of the default type
+    // Look for a dependency that either matches the source-target exactly
+    // OR is bidirectional and matches the reverse.
     const defaultTypeId = state.dependencyTypes[0].id;
     const existing = state.dependencies.find(d => 
         d.typeId === defaultTypeId && 
-        ((d.source === source && d.target === target) || (d.source === target && d.target === source))
+        (
+            (d.source === source && d.target === target) || 
+            (d.bidirectional && d.source === target && d.target === source)
+        )
     );
     
     if (existing) {
@@ -190,8 +215,7 @@ export default function App() {
     }
   };
 
-  const handleExport = () => {
-    const totalEdges = Object.values(metrics).reduce((acc, current) => acc + current.degreeCentrality.rawIn, 0);
+  const handleExportJSON = () => {
     const exportData = {
         actors: state.actors,
         categories: state.categories,
@@ -211,7 +235,37 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `sociograph-analysis-${Date.now()}.json`;
+    a.download = `sociograph-project-${Date.now()}.json`;
+    a.click();
+  };
+
+  const handleExportNodesCSV = () => {
+    const csv = generateNodesCSV(state.actors, state.categories, state.dependencies, metrics);
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sociograph-nodes-${Date.now()}.csv`;
+    a.click();
+  };
+
+  const handleExportConnectionsCSV = () => {
+    const csv = generateConnectionsCSV(state.dependencies, state.actors, state.dependencyTypes);
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sociograph-connections-${Date.now()}.csv`;
+    a.click();
+  };
+
+  const handleExportSummaryCSV = () => {
+    const csv = generateSummaryCSV(state.actors.length, totalEdges, metrics);
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sociograph-summary-${Date.now()}.csv`;
     a.click();
   };
 
@@ -276,7 +330,10 @@ export default function App() {
     <div className="flex flex-col h-screen overflow-hidden bg-slate-950">
       <Header 
         onReset={handleReset} 
-        onExport={handleExport} 
+        onExportJSON={handleExportJSON} 
+        onExportNodesCSV={handleExportNodesCSV}
+        onExportConnectionsCSV={handleExportConnectionsCSV}
+        onExportSummaryCSV={handleExportSummaryCSV}
         onExportSVG={handleSVGExport} 
         onImport={handleImport}
         sidebarVisible={sidebarVisible}
@@ -504,11 +561,11 @@ export default function App() {
                 <div className="absolute bottom-6 left-6 flex gap-6 bg-white/90 backdrop-blur-sm border border-slate-200 px-5 py-3 rounded-xl shadow-xl">
                   <div className="flex flex-col">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Network Density</span>
-                    <span className="text-sm font-mono font-bold text-slate-900">{(state.actors.length > 1 ? (state.dependencies.length / (state.actors.length * (state.actors.length - 1))).toFixed(2) : '0')}</span>
+                    <span className="text-sm font-mono font-bold text-slate-900">{(state.actors.length > 1 ? (totalEdges / (state.actors.length * (state.actors.length - 1))).toFixed(2) : '0')}</span>
                   </div>
                   <div className="flex flex-col border-l border-slate-200 pl-6">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Edges</span>
-                    <span className="text-sm font-mono font-bold text-slate-900">{state.dependencies.length}</span>
+                    <span className="text-sm font-mono font-bold text-slate-900">{totalEdges}</span>
                   </div>
                   <div className="flex flex-col border-l border-slate-200 pl-6">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Nodes</span>
@@ -536,6 +593,34 @@ export default function App() {
                       </div>
 
                       <div className="space-y-6">
+                          <div className="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-800">
+                             <div className="flex flex-col items-center gap-1 flex-1">
+                                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Source</span>
+                                <span className="text-xs font-bold text-white text-center">{state.actors.find(a => a.id === editingDependency.source)?.name}</span>
+                             </div>
+                             <div className="flex flex-col items-center gap-2 px-4">
+                                <div className="flex items-center gap-1 text-indigo-400">
+                                   <div className="h-0.5 w-4 bg-current rounded-full" />
+                                   {editingDependency.bidirectional ? <span className="text-sm font-bold">↔</span> : <span className="text-sm font-bold">→</span>}
+                                   <div className="h-0.5 w-4 bg-current rounded-full" />
+                                </div>
+                                <button 
+                                  onClick={() => setEditingDependency({
+                                    ...editingDependency, 
+                                    source: editingDependency.target, 
+                                    target: editingDependency.source
+                                  })}
+                                  className="text-[9px] font-bold text-indigo-400 hover:text-indigo-300 uppercase underline decoration-indigo-400/30 underline-offset-4"
+                                >
+                                  Reverse
+                                </button>
+                             </div>
+                             <div className="flex flex-col items-center gap-1 flex-1">
+                                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Target</span>
+                                <span className="text-xs font-bold text-white text-center">{state.actors.find(a => a.id === editingDependency.target)?.name}</span>
+                             </div>
+                          </div>
+
                           <div>
                               <label className="tab-header">Connection Type</label>
                               <div className="grid grid-cols-2 gap-2">
@@ -573,7 +658,10 @@ export default function App() {
                               <label className="tab-header">Directionality</label>
                               <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800">
                                   <button 
-                                    onClick={() => setEditingDependency({...editingDependency, bidirectional: false})}
+                                    onClick={() => {
+                                        if (editingDependency.bidirectional && !confirm('Switching to one-way will only keep the relationship from ' + state.actors.find(a => a.id === editingDependency.source)?.name + ' to ' + state.actors.find(a => a.id === editingDependency.target)?.name + '. Continue?')) return;
+                                        setEditingDependency({...editingDependency, bidirectional: false});
+                                    }}
                                     className={cn("flex-1 py-2 text-xs rounded-md font-medium transition-all", !editingDependency.bidirectional ? "bg-slate-800 text-indigo-400 shadow-sm" : "text-slate-500")}
                                   >
                                       One-Way

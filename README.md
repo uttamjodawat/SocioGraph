@@ -57,3 +57,29 @@ The average Closeness Centrality across all nodes.
 - **Normalization**: All centrality metrics are normalized between 0 and 1 to allow for comparison across networks of different sizes.
 - **Directional Sensitivity**: The calculations account for directed edges vs. bidirectional relationships.
 - **Real-time Sync**: Metrics are re-calculated on every state change using the `calculateSNAMetrics` utility in `src/lib/sna.ts`.
+
+---
+
+## 3. Export Capabilities
+
+The application supports multiple export formats to facilitate further analysis and reporting:
+
+### Project Data (JSON)
+- **Content**: Full state including all actors, categories, relationship types, and current connection strengths.
+- **Use Case**: Backing up the project for later import or programmatic processing with external tools.
+
+### Vector Map (SVG)
+- **Content**: A high-quality vector graphic of the current network map.
+- **Use Case**: Inclusion in reports, presentations, or static documentation.
+
+### Nodes & SNA Metrics (CSV)
+- **Content**: Detailed node list with all calculated centrality scores (In-Degree, Out-Degree, Betweenness, Closeness, Impact) and an adjacency list (Incoming, Outgoing, and All neighbors).
+- **Use Case**: Deep statistical analysis in Excel, R, or Python.
+
+### Connections List (CSV)
+- **Content**: A flat list of every edge in the network, including source, target, type, strength, and bidirectional status.
+- **Use Case**: Relationship mapping and audit trails.
+
+### Network Summary (CSV)
+- **Content**: Global network constants (Density, Avg Degree, Flow Efficiency).
+- **Use Case**: Quick executive summary of network cohesion and efficiency.

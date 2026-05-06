@@ -27,6 +27,7 @@ export interface Dependency {
   typeId: string;
   strength: number; // 1-5
   bidirectional: boolean;
+  description?: string;
 }
 
 export interface DependencyType {
